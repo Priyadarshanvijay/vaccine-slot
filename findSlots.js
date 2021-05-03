@@ -1,6 +1,7 @@
 import axios from 'axios';
 import dotenv from 'dotenv';
 import twilio from 'twilio';
+import personalMobile from './personalMobile.js';
 
 dotenv.config();
 
@@ -76,8 +77,7 @@ const getAllAppointments = async (districtId) => {
 };
 
 const sendMessages = async (pincode) => {
-  const listOfNumbers = ['+919001189016'];
-  const sentMessages = await Promise.all(listOfNumbers.map(sendAlert(pincode)));
+  const sentMessages = await Promise.all(personalMobile.map(sendAlert(pincode)));
 }
 
 const main = async () => {
