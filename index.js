@@ -1,7 +1,7 @@
 import axios from 'axios';
 import dotenv from 'dotenv';
 import twilio from 'twilio';
-import personalMobile from './personalMobile.js';
+import personalMobile from './personalMobile.js'; // An of mobile numbers to notify
 
 dotenv.config();
 
@@ -10,7 +10,7 @@ const appendZero = (num) => {
   return inString.padStart(2, '0');
 }
 
-const today = `${appendZero(new Date().getDate())}-${appendZero(new Date().getMonth() + 1)}-${new Date().getFullYear()}`;
+const today = () => `${appendZero(new Date().getDate())}-${appendZero(new Date().getMonth() + 1)}-${new Date().getFullYear()}`;
 
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -20,7 +20,7 @@ const client = twilio(accountSid, authToken);
 const sendAlert = (pincode) => (to) => client.messages
   .create({
     to,
-    from: '+19787162907',
+    from: process.env.TWILIO_SOURCE_MOBILE,
     body: 'Appointment available at ' + pincode,
   })
   .then();
@@ -28,7 +28,7 @@ const sendAlert = (pincode) => (to) => client.messages
 const options = (districtId) => ({
   method: 'GET',
   url: 'https://cdn-api.co-vin.in/api/v2/appointment/sessions/public/calendarByDistrict',
-  params: {district_id: districtId, date: today},
+  params: {district_id: districtId, date: today()},
   headers: {accept: 'application/json', 'Accept-Language': 'hi_IN'}
 });
 
@@ -55,7 +55,8 @@ const filterAvailableSession = (input) => input.filter(sessionAvailableFilter);
 
 const filterForAge = (age) => (appointmentData) => {
   const { centers } = appointmentData;
-  const availableAppointments = filterAvailableSession(centers.map(getAvailabilityFromCentre(age)));
+  const getAvailabilityFor18 = getAvailabilityFromCentre(age);
+  const availableAppointments = filterAvailableSession(centers.map(getAvailabilityFor18));
   return availableAppointments;
 };
 
@@ -77,11 +78,12 @@ const getAllAppointments = async (districtId) => {
 };
 
 const sendMessages = async (pincode) => {
-  const sentMessages = await Promise.all(personalMobile.map(sendAlert(pincode)));
+  const sendToPincode = sendAlert(pincode);
+  await Promise.all(personalMobile.map(sendToPincode));
 }
 
 const main = async () => {
-  const districtIds = ['505', '506'];
+  const districtIds = ['505', '506']; // JAIPUR I and II
   const appointmentAvailability = await Promise.all(districtIds.map(getAllAppointments)).then(filterAvailableSession);
   const totalData = appointmentAvailability.reduce((totalAppointments, { data = [] } = {}) => {
     return [...totalAppointments, ...data];
@@ -109,7 +111,7 @@ const main = async () => {
 while(true) {
   const foundSlots = await main();
   if (!foundSlots) {
-    console.log('No slots found')
+    console.log('No slots found, Timestamp: ', (new Date()).toLocaleTimeString(), ', ', (new Date()).toLocaleDateString())
   } else {
     console.log('Found Slots!!')
     process.exit(0);
